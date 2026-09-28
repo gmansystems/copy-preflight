@@ -1,0 +1,53 @@
+{
+  "version": "0.1.0",
+  "purpose": "Configurable copy preflight that detects some failure modes but cannot certify good writing or factual accuracy.",
+  "lexicon": {
+    "hard": [
+      "leverage",
+      "optimize",
+      "streamline",
+      "utilize",
+      "empower",
+      "unlock",
+      "transform",
+      "operator",
+      "field notes",
+      "AI SEARCH IS CHOOSING WINNERS"
+    ],
+    "soft": [
+      "scale",
+      "grow",
+      "holistic",
+      "seamless",
+      "robust",
+      "elevate",
+      "game-changing",
+      "revolutionary",
+      "cutting-edge",
+      "in today's fast-paced world",
+      "book a call"
+    ]
+  },
+  "social": {
+    "max_words_x": 60,
+    "max_words_linkedin": 90,
+    "max_words_instagram": 50,
+    "max_paragraph_words": 32,
+    "max_sentence_words": 24,
+    "visual_required": true
+  },
+  "claim_patterns": [
+    "(?<!\\w)\\d+(?:[.,]\\d+)?%?(?!\\w)",
+    "\\b(?:first|only|best|guaranteed|proven|verified|launched|live|available|just dropped|announced|saved|increased|decreased)\\b"
+  ],
+  "claim_rule": "Patterns trigger human review, not automatic verdict. A source URL alone is not verification. Every checkable claim needs a claim-specific evidence note and a human source check before publishing.",
+  "visual_rule": "Social copy needs a real inspected asset. Text cannot prove pixels, provenance, crop, privacy or a platform label. Missing or unchecked assets block publication.",
+  "human_review": [
+    "Does the angle sound like Shokh, rather than vendor news?",
+    "Is every specific claim supported by the source?",
+    "Does a real visual add proof without private data?",
+    "Would Leo at 8pm, a hostile copywriter, a skeptic, a nontechnical owner and a growth lead keep reading?"
+  ],
+  "scope": "Preflight only. Does not schedule, publish, check duplicates, validate external links, review design pixels, or assert AI-origin detection.",
+  "linkedin_blocked_terms": []
+}
