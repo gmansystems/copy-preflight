@@ -26,3 +26,31 @@ class TestPreflight(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+class TestGrammarLayer(unittest.TestCase):
+    V = dict(inspected=True, real_asset=True, privacy_checked=True)
+    def codes(self, text, channel='x'):
+        return {i['code'] for i in lint(text, channel, self.V)['issues']}
+    def test_user_rejected_openai_draft_must_fail(self):
+        draft = "@OpenAI's new safety-case pitch has one test:\nWho gets to stop the run?\nIf that answer's buried, it's paperwork."
+        result = lint(draft, 'x', self.V)
+        self.assertEqual(result['status'], 'blocked')
+        self.assertIn('RHETORICAL_SETUP', self.codes(draft))
+        self.assertIn('QUESTION_IF_VERDICT', self.codes(draft))
+    def test_false_contrast(self):
+        self.assertIn('FALSE_CONTRAST', self.codes('Not more dashboards, but better decisions.'))
+        self.assertIn('FALSE_CONTRAST', self.codes('Not just a tool, but also a teammate.'))
+    def test_em_dash_pivot_and_opener(self):
+        self.assertIn('EM_DASH_PIVOT', self.codes('The agent ran—then it stopped.'))
+        self.assertIn('AI_OPENER', self.codes("Here's the thing: nobody checked."))
+    def test_rule_of_three(self):
+        text='We tested one.\nWe tested two.\nWe tested three.'
+        self.assertIn('RULE_OF_THREE', self.codes(text))
+    def test_short_fragment_stack(self):
+        self.assertIn('FRAGMENT_STACK', self.codes('Ship the thing.\nCheck the thing.\nFix the thing.'))
+    def test_clean_voice_no_grammar_false_positive(self):
+        text="Pretty photos don't get you booked. A clear Book button does."
+        self.assertFalse(self.codes(text) & {'RHETORICAL_SETUP','QUESTION_IF_VERDICT','IF_THEN_APHORISM','FALSE_CONTRAST','EM_DASH_PIVOT','AI_OPENER','RULE_OF_THREE','FRAGMENT_STACK'})
+    def test_real_critique_long_paragraph_still_detected(self):
+        text="Microsoft says Copilot Autopilot will keep working while you're gone. Fine. The test is what it can show you when you get back: what it did, who it contacted, and what it couldn't finish. Private preview expands at month-end."
+        self.assertIn('WALL_OF_TEXT', self.codes(text))
