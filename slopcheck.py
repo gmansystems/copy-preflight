@@ -54,6 +54,56 @@ def lint(text, channel='copy', visual=None, evidence=None):
                 if re.search(r'(?<!\w)' + re.escape(term) + r'(?!\w)', text, re.I):
                     out.append(issue('LINKEDIN_LANE', 'block', 'Configured term disallowed on LinkedIn.',
                                      'Choose a topic that fits this audience, or skip this channel.'))
+    # A small, explicit grammar layer. These are format warnings, never AI-authorship labels.
+    def add_grammar(code, severity, message, fix, start, end):
+        out.append(issue(code, severity, message, fix, start, end))
+
+    # Concrete, narrow constructions, with spans so a human can edit the right part.
+    templates = [
+        ('RHETORICAL_SETUP', 'block',
+         r"\b(?:has|comes down to|boils down to|there is|there's|here's)\s+(?:one|a single)\s+(?:test|question|thing|rule)\s*:\s*(?:\n\s*)?[^?\n]{3,100}\?",
+         'Say what happened or what you checked, without the teaser and staged question.'),
+        ('QUESTION_IF_VERDICT', 'block',
+         r"(?:^|(?<=\n))\s*[^?\n]{3,100}\?\s*(?:\n\s*)+If\s+[^\n.!?]{3,100},\s*(?:it(?:'s| is)|that(?:'s| is))\s+[^\n.!?]{2,100}[.!]?",
+         'Replace the rhetorical question and verdict with the observed result and source.'),
+        ('FALSE_CONTRAST', 'review',
+         r"\bnot\s+(?:just\s+)?[^,.!?\n]{2,90}?,?\s+but\s+(?:also\s+)?[^.!?\n]{2,90}",
+         'Say the specific point once instead of opposing two vague labels.'),
+        ('EM_DASH_PIVOT', 'review',
+         r"[^\n.!?]{3,90}\s*—\s*[^\n.!?]{3,90}",
+         'Try a plain sentence with the specific action or result.'),
+        ('AI_OPENER', 'review',
+         r"(?:^|(?<=\n))\s*(?:here(?:'|’)s the thing|let that sink in|the real question is|at the end of the day)\b[^\n]*",
+         'Remove the throat-clearing and lead with the real observation.'),
+    ]
+    for code, severity, pattern, fix in templates:
+        for m in re.finditer(pattern, text, re.I | re.M):
+            add_grammar(code, severity, f'Template cadence: {m.group().strip()!r}.', fix, m.start(), m.end())
+    for m in re.finditer(r"(?:^|(?<=\n))\s*If\s+[^\n.!?]{3,100},\s*(?:it(?:'s| is)|that(?:'s| is))\s+[^\n.!?]{2,100}[.!]?", text, re.I):
+        if not any(i['code'] == 'QUESTION_IF_VERDICT' and i['span'] and i['span'][0] <= m.start() < i['span'][1] for i in out):
+            add_grammar('IF_THEN_APHORISM', 'review', 'If/then verdict cadence.',
+                        'Name the observed result, not a general moral.', m.start(), m.end())
+    if channel != 'copy':
+        # A three-line fragment stack is a weak signal, so review only.
+        lines = [(i, x.strip()) for i, x in enumerate(text.splitlines()) if x.strip()]
+        for j in range(len(lines)-2):
+            batch = [x for _, x in lines[j:j+3]]
+            if all(1 <= len(WORD.findall(x)) <= 7 for x in batch) and all(x.endswith(('.', '!', '?')) for x in batch):
+                first = lines[j][0]
+                pos = sum(len(x) + 1 for x in text.splitlines()[:first])
+                add_grammar('FRAGMENT_STACK', 'review', 'Three short punchline lines in a row.',
+                            'Use natural sentence rhythm; keep only the line with a concrete observation.', pos, pos + sum(len(x) for x in batch)+2)
+                break
+        for j in range(len(lines)-2):
+            batch = [x for _, x in lines[j:j+3]]
+            # Detect repeated *openers*, not any list with three items.
+            starts = [' '.join(WORD.findall(x)[:2]).lower() for x in batch]
+            if starts[0] and starts.count(starts[0]) == 3 and len(WORD.findall(batch[0])) >= 3:
+                first = lines[j][0]
+                pos = sum(len(x) + 1 for x in text.splitlines()[:first])
+                add_grammar('RULE_OF_THREE', 'review', 'Three lines reuse the same opening.',
+                            'Keep the strongest example; vary rhythm only if it helps the point.', pos, pos + sum(len(x) for x in batch)+2)
+                break
     for sentence in re.split(r'(?<=[.!?])\s+|\n+', text):
         n = len(WORD.findall(sentence))
         if n > SPEC['social']['max_sentence_words']:
