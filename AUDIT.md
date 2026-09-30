@@ -36,7 +36,7 @@ Release under audit: https://github.com/gmansystems/copy-preflight/releases/tag/
 
 The public lexicon now gives vocabulary warnings rather than automatic blocks. Common technical words were removed from the public defaults. A caller can still configure hard blocks. Claim matches are reminders, not unsupported-truth verdicts. This is a deliberate behavior change, not an accuracy measurement.
 
-The patch adds local regression tests, an ignore file and a proposed CI workflow. The CI matrix has not been run on GitHub. Local tests cover the installed Python version only.
+The patch adds regression tests, an ignore file and a CI workflow. The first GitHub CI run passed all 32 tests on Python 3.9 and 3.13. Local fresh-clone tests also passed on Python 3.10.12. CI action runtime warnings prompted a follow-up change to pinned Node 24 action versions and Ubuntu 24.04; release checks must confirm that updated workflow.
 
 ## What is genuinely weak
 
@@ -50,7 +50,7 @@ The patch adds local regression tests, an ignore file and a proposed CI workflow
 ## Readiness
 
 - Show v0.2.0 unchanged as a solid checker: **no**.
-- Show the patch as a small experimental linter and invite critique: **yes, after the patch is published and its live state checked**.
+- Show the patch as a small experimental linter and invite critique: **yes, with the experimental label and known limits kept visible**.
 - Give a content team an automatic publish gate: **no**.
 
 The next useful investment is permission-cleared, independently rated good and bad copy, held apart from rule development. Report false alarms and misses by vocabulary, cadence and workflow checks. Do not claim overall performance from a handful of synthetic examples.
