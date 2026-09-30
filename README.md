@@ -1,48 +1,77 @@
 # Copy preflight
 
-A small, opinionated linter for obvious copy problems. It catches stale-sounding phrases, long social paragraphs, unsupported checkable claims, missing visual review, and an optional configured LinkedIn topic boundary. It does **not** detect whether AI wrote something or promise to remove all bad writing. A zero-issue score is still `human_review`, never permission to publish.
+A local Python linter for repeated marketing phrases, a few rhetorical templates and copy-review reminders. It uses word lists and regexes. No API keys, model calls or third-party Python packages.
 
-**v0.2 adds grammar/cadence warnings** after a short post passed v0.1 but its author still called it AI-sounding. The exact rejected draft is a regression test: a teaser ending in "one test:", a staged question, and an "If ..., it's ..." verdict. Vocab and pattern flags describe the text, not who wrote it.
+**This is an experimental linter, not an AI detector or a writing-quality gate.** It catches some familiar patterns. It misses bland writing that uses different words, and it can flag good writing. A score of 100 means no configured rule matched, not that the copy is good.
 
-## Run
+## Try it
 
-Python 3.9+; no third-party packages.
+Python 3.9+. Clone this repository and run from its directory:
 
 ```bash
-printf '%s\n' 'Leverage our revolutionary solution.' | python3 slopcheck.py --channel copy
-printf '%s\n' 'Pretty photos do not get you booked. A clear Book button does.' | python3 slopcheck.py --channel x
+printf '%s\n' 'Our platform empowers teams and unlocks their potential.' | python3 slopcheck.py
+printf '%s\n' 'The operator restarted the pump.' | python3 slopcheck.py
 python3 -m unittest -v
 ```
 
-The CLI accepts `--input draft.txt`, `--channel copy|x|linkedin|instagram`, `--visual visual.json`, and `--evidence evidence.json`. It prints JSON with a score, blocked/review status, issue codes, spans and suggested fixes. The score is a surface-problem heuristic, not a probability or a quality guarantee. See `spec.json` for thresholds and vocabulary. Change those before applying it to another person's voice.
+The first example produces vocabulary-review issues. The second has no issues under the public defaults. Neither result identifies the author or decides whether to publish.
 
-A social post needs a separate visual record such as `{"inspected":true,"real_asset":true,"privacy_checked":true}`. Those flags document a human check; the program cannot inspect the image itself. A claim-specific record looks like:
+Use `--input draft.txt` instead of stdin. Output is JSON:
+
+- `issues`: rule codes, severity, edit advice and character spans where available.
+- `status`: `blocked` if a block rule matched; otherwise `human_review`, even with no issues.
+- `score`: 100 minus 20 per block and 7 per review, floored at zero. This weighting is arbitrary, not calibrated against reader ratings.
+- `claims_detected`: only the text matched by the narrow claim patterns.
+
+By default the process exits 0 after a valid run, including a blocked result. For scripts, use `--fail-on block` or `--fail-on review`. Exit 1 means the selected threshold matched; exit 2 means bad input or configuration. JSON is still printed on exit 1.
+
+## What the rules do
+
+| Check | Default behavior | Important limit |
+| --- | --- | --- |
+| Listed marketing phrases | Review | Literal phrases and selected inflections only; context can make a phrase appropriate |
+| Teaser + question; question + if/verdict | Block | Narrow templates; legitimate questions can match |
+| False contrasts, if/verdict, em-dash pivots, repeated short lines | Review | Style warnings, not proof of bad writing |
+| Long sentences and social posts | Review | Word-count targets, not platform limits |
+| Long social paragraphs | Block | A single newline wraps a paragraph; blank lines separate paragraphs |
+| Numbers and selected claim verbs | Review | Misses many facts; can flag dates, versions or harmless numbers |
+| Missing visual attestation on social channels | Block | Optional workflow policy; the tool cannot see images |
+
+`--channel copy` is the default. `x`, `linkedin` and `instagram` enable social length checks and the visual policy. These are editorial presets, not claims about what each platform permits.
+
+## Visual and source records
+
+The social presets require a JSON file passed with `--visual visual.json`:
 
 ```json
-[{"claim":"30%","source":"https://example.org/original-receipt","note":"The source actually states this figure","checked":true}]
+{"inspected":true,"real_asset":true,"privacy_checked":true}
 ```
 
-A URL by itself never clears a claim flag. These records are attestations by the caller, not proof verified by the software. Keyword detection misses many factual claims and can flag innocent numbers. Publication still requires checking the original source, audience, image pixels, privacy, platform state and local context.
+These must be JSON booleans, not strings. They record a caller's check. The tool cannot inspect pixels, confirm ownership or detect private information. Text-only posts can be reasonable: disable `social.visual_required` in a custom spec when this policy does not fit.
 
-## What is checked
+A source attestation passed with `--evidence evidence.json` can remove a matched claim reminder:
 
-- Hard words or template phrases trigger a block; softer clichés trigger review.
-- Rhetorical teaser + question and question + if/verdict are blocked. False contrasts, em-dash pivots, "here's the thing" openers, short if/then morals, and repeated three-line beats prompt review. Regexes are intentionally narrow and will miss variants or flag intentional style.
-- Social copy over channel targets, sentences over 24 words, and uninterrupted lines over 32 words are flagged.
-- Numbers and a narrow set of claim verbs require a claim-specific checked source record.
-- A social post without a real, inspected, privacy-checked visual blocks.
-- Set `linkedin_blocked_terms` in `spec.json` for your own audience restrictions. The public default is empty.
+```json
+[{"claim":"30%","source":"https://example.org/receipt","note":"The original receipt states this figure","checked":true}]
+```
 
-Not covered: images or layouts, exact truth of sources, linked pages, post timing, cross-channel audience judgment, duplicate posts, originality, platform labels, or publication. Never feed private messages or customer data into a public test fixture.
+This is an illustrative record, not a real source. Each `claim` must match a detected phrase. The program does not fetch URLs or verify notes. Supplying a record does not make a claim true. Many claims produce no reminder at all.
 
-## Example from a real rejected pattern, sanitized
+## Configure it
 
-Bad: a long, unbroken social paragraph about what an agent does, without a visual. The linter flags `WALL_OF_TEXT` and `VISUAL_UNVERIFIED`.
+Copy `spec.json`, edit it, and pass `--spec my-spec.json`. Public vocabulary is review-only; use `lexicon.hard` for words your own workflow must block. The default `linkedin_blocked_terms` list is empty. Grammar patterns are in `slopcheck.py`; the `grammar` section in the spec describes them, it does not change the regexes.
 
-Better draft: "Show me who it contacted.\n\nShow me what it couldn't finish." Still blocked until an actual product image is inspected and the claim is checked. Shorter is not automatically good.
+Input is processed locally by this code. It makes no network calls. Do not put private messages or customer data in public issues, examples or test fixtures.
 
-## Development
+## Test status and known misses
 
-Run `python3 -m unittest -v`. The 14-test suite includes the exact owner-rejected v0.1 false negative. It guards against obvious regressions, not writing quality. Candidate changes should also be blind-reviewed on a consented, private set of good/bad examples by a prospect, skeptical copywriter, skeptical buyer, nontechnical reader, and growth reviewer. Don't train or publish those examples without permission. Add false-positive and false-negative tests as you learn.
+The audit patch has 32 automated tests. They check specific behavior, not detection accuracy. See [AUDIT.md](AUDIT.md) for the v0.2.0 defects, fixes and remaining limits.
 
-License: MIT. Contributions should include a failing test and explain why the changed rule helps rather than merely gaming the score.
+The following factual claims still produce no claim reminders:
+
+- "Acme cut checkout time in half after the migration."
+- "The update ships tomorrow and supports every Android phone."
+
+No held-out, human-rated benchmark has been run. Precision and recall are unknown. More regexes will not establish that this tool catches slop well. Before using it as a team gate, test it on permission-cleared drafts rated by readers, separate those examples from rule development, and measure both missed bad copy and needless alarms on good copy.
+
+Run `python3 -m unittest -v`. Contributions should include a failing test and explain the false-positive tradeoff. MIT license.
